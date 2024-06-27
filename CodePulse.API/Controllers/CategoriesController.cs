@@ -36,5 +36,23 @@ namespace CodePulse.API.Controllers
 
             return Ok();
         }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllCategories()
+        {
+            var categories = await _categoryRepository.GetAllAsync();
+
+            var response = new List<CategoryDto>();
+            foreach(var categoryDto in categories)
+            {
+                response.Add(new CategoryDto
+                {
+                    Id =categoryDto.Id,
+                    Name = categoryDto.Name,
+                    UrlHandle = categoryDto.UrlHandle
+                });
+            }
+            return Ok(response);
+        }
     }
 }
