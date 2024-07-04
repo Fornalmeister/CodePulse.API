@@ -1,4 +1,5 @@
-﻿using CodePulse.API.Models.Domain;
+﻿using Azure.Core;
+using CodePulse.API.Models.Domain;
 using CodePulse.API.Models.DTO;
 using CodePulse.API.Repositories.Interface;
 using Microsoft.AspNetCore.Http;
@@ -11,9 +12,11 @@ namespace CodePulse.API.Controllers
     public class BlogPostsController : ControllerBase
     {
         private readonly IBlogPostRepository _blogPostRepository;
-        public BlogPostsController(IBlogPostRepository blogPostRepository)
+        private readonly ICategoryRepository _categoryRepository;
+        public BlogPostsController(IBlogPostRepository blogPostRepository, ICategoryRepository categoryRepository)
         {
             _blogPostRepository = blogPostRepository;
+            _categoryRepository = categoryRepository;
         }
 
         [HttpPost]
@@ -28,8 +31,20 @@ namespace CodePulse.API.Controllers
                 ShortDescription = request.ShortDescription,
                 UrlHandle = request.UrlHandle,
                 Content = request.Content,
-                PublishedDate = request.PublishedDate
+                PublishedDate = request.PublishedDate,
+                Categories = new List<Category>()
+                
             };
+
+            foreach (var categoryGuid in request.Categories)
+            {
+                var existingCategory = await _categoryRepository.GetByIdAsync(categoryGuid);
+                if(existingCategory is not null)
+                {
+                    blogPost.Categories.Add(existingCategory);
+                }
+            }
+
 
             blogPost = await _blogPostRepository.CreateAsync(blogPost);
 
@@ -43,8 +58,45 @@ namespace CodePulse.API.Controllers
                 UrlHandle = request.UrlHandle,
                 ShortDescription = request.ShortDescription,
                 IsVisible = request.IsVisible,
-                Title = request.Title
+                Title = request.Title,
+                Categories = blogPost.Categories.Select(x => new CategoryDto
+                {
+                    Id = x.Id,
+                    Name = x.Name,
+                    UrlHandle = x.UrlHandle
+                }).ToList()
             };
+
+            return Ok(response);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllBlogPosts()
+        {
+            var blogPosts = await _blogPostRepository.GetAllAsync();
+
+            var response = new List<BlogPostDto>();
+            foreach(var blogPost in blogPosts)
+            {
+                response.Add(new BlogPostDto
+                {
+                    Id = blogPost.Id,
+                    Author = blogPost.Author,
+                    Content = blogPost.Content,
+                    PublishedDate = blogPost.PublishedDate,
+                    FeaturedImageUrl = blogPost.FeaturedImageUrl,
+                    UrlHandle = blogPost.UrlHandle,
+                    ShortDescription = blogPost.ShortDescription,
+                    IsVisible = blogPost.IsVisible,
+                    Title = blogPost.Title,
+                    Categories = blogPost.Categories.Select(x => new CategoryDto
+                    {
+                        Id = x.Id,
+                        Name = x.Name,
+                        UrlHandle = x.UrlHandle
+                    }).ToList()
+                });
+            }
 
             return Ok(response);
         }
